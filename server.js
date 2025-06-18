@@ -16,10 +16,21 @@ const messageService = require('./src/ws/ws');
 const app = express();
 const server = http.createServer(app);
 
-// Security and performance middleware
-app.use(helmet());
+// Security and performance middleware (with relaxed CORS)
+app.use(helmet({
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 app.use(compression());
-app.use(cors());
+
+// Open CORS - Allow all origins
+app.use(cors({
+  origin: true, // Allow all origins
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['*'],
+  exposedHeaders: ['*']
+}));
 
 // Rate limiting
 // const limiter = rateLimit({
@@ -41,7 +52,11 @@ app.use('/api', routes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    cors: 'open - all origins allowed'
+  });
 });
 
 // Error handling middleware
@@ -66,9 +81,6 @@ async function startServer() {
     await initializeDatabase();
     logger.info('Database connected successfully');
 
-    // Initialize WebSocket
-
-    // Initialize WebSocket
     webSocketManager.initialize(server);
 
     // Set up WebSocket event listeners for business logic
@@ -82,17 +94,16 @@ async function startServer() {
       // Add any cleanup logic here
     });
 
-    // ...rest of your server setup...
-
     // Make services available globally if needed
     global.webSocketManager = webSocketManager;
     global.messageService = messageService;
 
     logger.info('WebSocket initialized successfully');
 
-    const PORT = process.env.PORT || 3000;
+    const PORT = process.env.PORT || 4001;
     server.listen(PORT, () => {
       logger.info(`Server running on port ${PORT}`);
+      logger.info(`CORS: Open (all origins allowed)`);
       logger.info(`Swagger docs available at http://localhost:${PORT}/api-docs`);
     });
   } catch (error) {
@@ -104,6 +115,14 @@ async function startServer() {
 // Graceful shutdown
 process.on('SIGTERM', () => {
   logger.info('SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    logger.info('Process terminated');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  logger.info('SIGINT received, shutting down gracefully');
   server.close(() => {
     logger.info('Process terminated');
     process.exit(0);

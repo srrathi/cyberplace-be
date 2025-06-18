@@ -26,7 +26,7 @@ class WebSocketManager extends EventEmitter {
 
         const defaultOptions = {
             cors: {
-                origin: process.env.CLIENT_URL || "*",
+                origin: true, // Allow all origins
                 methods: ["GET", "POST"],
                 // credentials: true
             },
